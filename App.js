@@ -1,8 +1,58 @@
 import React from 'react';
-import { Image,  StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import logo from './assets/icon-192x192.png';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+// import logo from './assets/icon-192x192.png';
+import * as ImagePicker from 'expo-image-picker';
+import * as Sharing from 'expo-sharing';
+import uploadToAnonymousFilesAsync from 'anonymous-files';
+
 
 export default function App() {
+  const [selectedImage, setSelectedImage] = React.useState(null);
+
+  let openImagePickerAsync = async () => {
+    let permissionResult = await ImagePicker.requestCameraRollPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      alert("Permission to access camera roll is required!");
+      return;
+    }
+    let pickerResult = await ImagePicker.launchImageLibraryAsync();
+    if (pickerResult.cancelled === true) {
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      let remoteUri = await uploadToAnonymousFilesAsync(pickerResult.uri);
+      setSelectedImage({ localUri: pickerResult.uri, remoteUri });
+    } else {
+      setSelectedImage({ localUri: pickerResult.uri, remoteUri: null });
+    }
+
+    // setSelectedImage({ localUri: pickerResult.uri });
+  };
+
+  let openShareDialogAsync = async () => {
+    if (!(await Sharing.isAvailableAsync())) {
+      alert(`The image is available for sharing at: ${selectedImage.remoteUri}`);
+      // alert(`Uh oh, sharing isn't available on your platform`);
+      return;
+    }
+    Sharing.shareAsync(selectedImage.remoteUri || selectedImage.localUri);
+  };
+
+  if (selectedImage !== null) {
+    return (
+      <View style={styles.container}>
+        <Image source={{ uri: selectedImage.localUri }} style={styles.thumbnail} />
+
+        <TouchableOpacity onPress={openShareDialogAsync} style={styles.button}>
+          <Text style={styles.buttonText}>Share this photo</Text>
+        </TouchableOpacity>
+
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
     <Image source={{ uri: "https://i.imgur.com/TkIrScD.png" }} style={styles.logo} />
@@ -10,7 +60,7 @@ export default function App() {
       To share a photo from your phone with a friend, just press the button below!
     </Text>
     <TouchableOpacity
-      onPress={() => alert('Hello, world!')} style={styles.button}>
+      onPress={openImagePickerAsync} style={styles.button}>
       <Text  style={styles.buttonText}>Pick a photo</Text>
     </TouchableOpacity>
 
@@ -43,5 +93,10 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 20,
     color: '#fff',
-  }, 
+  },
+  thumbnail: {
+   width: 300,
+   height: 300,
+   resizeMode: "contain"
+ }
 });
